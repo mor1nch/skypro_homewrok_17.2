@@ -10,6 +10,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+api = Api(app)
+movie_ns = api.namespace("movies")
+
 
 class Movie(db.Model):
     __tablename__ = 'movie'
@@ -24,6 +27,24 @@ class Movie(db.Model):
     director_id = db.Column(db.Integer, db.ForeignKey("director.id"))
     director = db.relationship("Director")
 
+
+class MovieSchema(Schema):
+    id = fields.Int(dump_only=True)
+    title = fields.Str()
+    description = fields.Str()
+    trailer = fields.Str()
+    year = fields.Int()
+    rating = fields.Float()
+    genre_id = fields.Int()
+    genre = fields.Str()
+    director_id = fields.Int()
+    director = fields.Str()
+
+
+movie_schema = MovieSchema()
+movies_schema = MovieSchema(many=True)
+
+
 class Director(db.Model):
     __tablename__ = 'director'
     id = db.Column(db.Integer, primary_key=True)
@@ -35,6 +56,30 @@ class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
 
+
+@movie_ns.route("/")
+class BasedView(Resource):
+    def get(self):
+        all_movies = Movie.query.all()
+        director_id = request.args.get('director_id')
+        genre_id = request.args.get('genre_id')
+        if director_id:
+            result = Movie.query.filter_by(director_id=director_id).all()
+            return movies_schema.dump(result), 200
+        if genre_id:
+            result = Movie.query.filter_by(genre_id=genre_id).all()
+            return movies_schema.dump(result), 200
+        return movies_schema.dump(all_movies), 200
+
+
+@movie_ns.route("/<int:uid>")
+class BasedView(Resource):
+    def get(self, uid: int):
+        try:
+            book = Movie.query.get(uid)
+            return movie_schema.dump(book), 200
+        except Exception:
+            return "", 404
 
 
 if __name__ == '__main__':
